@@ -11,7 +11,7 @@ set(GLEW_LINK /usr/local/Cellar/glew/2.1.0/lib/libGLEW.2.1.dylib)
 set(GLFW_LINK /usr/local/Cellar/glfw/3.3/lib/libglfw.3.dylib)
 link_libraries(${GLEW_LINK} ${GLFW_LINK})
 
-set(SOURCE_FILES main.cpp glad.c loader.cpp shader.hpp camera.hpp)
+set(SOURCE_FILES main.cpp glad.c loader.cpp shader.hpp camera.hpp car.hpp)
 add_executable(Lab02 ${SOURCE_FILES})
 if (APPLE)
     target_link_libraries(Lab02 "-framework OpenGL")

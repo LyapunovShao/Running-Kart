@@ -8,21 +8,31 @@
 #include "loader.hpp"
 #include "shader.hpp"
 #include "camera.hpp"
+#include "car.hpp"
+
 
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
-const glm::vec3 lightPos = glm::vec3(0.0f, 400.0f, 0.0f);
+const glm::vec3 lightPos = glm::vec3(0.0f, 4000.0f, 0.0f);
+float windowRatio = (float) SCR_WIDTH / (float) SCR_HEIGHT;
 // camera
-const glm::vec3 cameraInitialPos = glm::vec3(0.0f, 100.0f, 0.0f);
+const glm::vec3 cameraInitialPos = glm::vec3(0.0f, 500.0f, 0.0f);
 Camera camera(cameraInitialPos);
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
+glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), windowRatio, 0.1f,
+                                        10000.0f);
+
+// car
+controlStatus status;
+
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
@@ -54,10 +64,12 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
+
 
     // GLFW mouse capture
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+
 
     // initialize glad
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
@@ -68,8 +80,12 @@ int main() {
     // configure global opengl state
     glEnable(GL_DEPTH_TEST);
 
+    // create car
+    Car car;
+
     // build and compile shader program
     Shader carBase("base.vs", "base.fs");
+
 
     // load data
     std::vector<float> carBaseVertices;
@@ -91,6 +107,7 @@ int main() {
 
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+
 
     // render loop
     while (!glfwWindowShouldClose(window)) {
@@ -114,12 +131,16 @@ int main() {
         carBase.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
         carBase.setVec3("lightPos", lightPos);
         carBase.setVec3("viewPos", camera.Position);
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f,
-                                                500.0f);
+        glm::mat4 model = glm::mat4(1.0f);
+        // put the car in correct angle
+        //model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
+
+        car.Change(status, deltaTime);
 
         carBase.setMat4("projection", projection);
         carBase.setMat4("view", camera.GetViewMatrix());
-        carBase.setMat4("model", glm::mat4(1.0f));
+        carBase.setMat4("model", car.GetBaseModelTransform());
 
         // render the car base
         glBindVertexArray(carBaseVAO);
@@ -137,6 +158,9 @@ int main() {
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     // make sure the viewport matches the new window dimensions; note that width and
     // height will be significantly larger than specified on retina displays.
+    windowRatio = (float) width / (float) height;
+    projection = glm::perspective(glm::radians(camera.Zoom), windowRatio, 0.1f,
+                                  10000.0f);
     glViewport(0, 0, width, height);
 }
 
@@ -151,6 +175,11 @@ void processInput(GLFWwindow *window) {
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    status.forward = glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS;
+    status.backward = glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS;
+    status.left = glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS;
+    status.right = glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS;
 }
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
@@ -166,6 +195,3 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
     camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
-    camera.ProcessMouseScroll(yoffset);
-}
