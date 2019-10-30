@@ -111,7 +111,7 @@ bool _loadObj(const std::string obj,
     std::vector<glm::vec3>().swap(vertices);
     std::vector<std::vector<glm::vec3>>().swap(normals_collection);
     // Build outputs
-    for (int i = 0; i < vertices_num * 6; ++i) {
+    for (int i = 0; i < verticesRet.size(); ++i) {
         normalsRet.push_back(normals[new_ind[i]]);
     }
 

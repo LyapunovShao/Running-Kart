@@ -33,13 +33,10 @@ controlStatus status;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
-
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 
 void processInput(GLFWwindow *window);
 
@@ -85,21 +82,40 @@ int main() {
 
     // build and compile shader program
     Shader carBase("base.vs", "base.fs");
-
+    Shader carWheel("wheel.vs", "wheel.fs");
 
     // load data
     std::vector<float> carBaseVertices;
+    std::vector<float> carWheelVertices;
     loadObj("base.obj", carBaseVertices);
+    loadObj("wheel.obj", carWheelVertices);
 
     // configure the car base VA0, etc
-    unsigned int VBO, carBaseVAO;
+    unsigned int carBaseVBO, carBaseVAO;
     glGenVertexArrays(1, &carBaseVAO);
-    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &carBaseVBO);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, carBaseVBO);
     glBufferData(GL_ARRAY_BUFFER, carBaseVertices.size() * sizeof(float), &carBaseVertices[0], GL_DYNAMIC_DRAW);
 
     glBindVertexArray(carBaseVAO);
+
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+
+    unsigned int carWheelVBO, carWheelVAO;
+    glGenVertexArrays(1, &carWheelVAO);
+    glGenBuffers(1, &carWheelVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, carWheelVBO);
+    glBufferData(GL_ARRAY_BUFFER, carWheelVertices.size() * sizeof(float), &carWheelVertices[0], GL_DYNAMIC_DRAW);
+
+    glBindVertexArray(carWheelVAO);
 
     // position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
@@ -131,21 +147,32 @@ int main() {
         carBase.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
         carBase.setVec3("lightPos", lightPos);
         carBase.setVec3("viewPos", camera.Position);
-        glm::mat4 model = glm::mat4(1.0f);
-        // put the car in correct angle
-        //model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-
 
         car.Change(status, deltaTime);
 
         carBase.setMat4("projection", projection);
         carBase.setMat4("view", camera.GetViewMatrix());
-        carBase.setMat4("model", car.GetBaseModelTransform());
+        carBase.setMat4("model",
+                        glm::rotate(car.GetBaseModelTransform(), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
 
         // render the car base
         glBindVertexArray(carBaseVAO);
         glDrawArrays(GL_TRIANGLES, 0, carBaseVertices.size() / 6);
+        for (int i = 0; i < 4; ++i) {
+            carWheel.use();
+            carWheel.setVec3("wheelColor", 0.2f, 0.2f, 0.25f);
+            carWheel.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
+            carWheel.setVec3("lightPos", lightPos);
+            carWheel.setVec3("viewPos", camera.Position);
 
+
+            carWheel.setMat4("projection", projection);
+            carWheel.setMat4("view", camera.GetViewMatrix());
+            carWheel.setMat4("model", glm::rotate(car.GetWheelModelTransform(i), glm::radians(90.0f),
+                                                  glm::vec3(1.0f, 0.0f, 0.0f)));
+            glBindVertexArray(carWheelVAO);
+            glDrawArrays(GL_TRIANGLES, 0, carWheelVertices.size() / 6);
+        }
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
