@@ -83,12 +83,18 @@ int main() {
     // build and compile shader program
     Shader carBase("base.vs", "base.fs");
     Shader carWheel("wheel.vs", "wheel.fs");
+    Shader road("road.vs", "road.fs");
+    Shader carSteering("steering.vs", "steering.fs");
 
     // load data
     std::vector<float> carBaseVertices;
     std::vector<float> carWheelVertices;
+    std::vector<float> roadVertices;
+    std::vector<float> carSteeringVertices;
     loadObj("base.obj", carBaseVertices);
     loadObj("wheel.obj", carWheelVertices);
+    loadObj("road.obj", roadVertices);
+    loadObj("steering.obj", carSteeringVertices);
 
     // configure the car base VA0, etc
     unsigned int carBaseVBO, carBaseVAO;
@@ -107,7 +113,7 @@ int main() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-
+    // wheel data
     unsigned int carWheelVBO, carWheelVAO;
     glGenVertexArrays(1, &carWheelVAO);
     glGenBuffers(1, &carWheelVBO);
@@ -124,10 +130,43 @@ int main() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+    //road data
+    unsigned int roadVBO, roadVAO;
+    glGenVertexArrays(1, &roadVAO);
+    glGenBuffers(1, &roadVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, roadVBO);
+    glBufferData(GL_ARRAY_BUFFER, roadVertices.size() * sizeof(float), &roadVertices[0], GL_STATIC_DRAW);
+
+    glBindVertexArray(roadVAO);
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    // steering wheel data
+    unsigned int carSteeringVBO, carSteeringVAO;
+    glGenVertexArrays(1, &carSteeringVAO);
+    glGenBuffers(1, &carSteeringVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, carSteeringVBO);
+    glBufferData(GL_ARRAY_BUFFER, carSteeringVertices.size() * sizeof(float), &carSteeringVertices[0], GL_DYNAMIC_DRAW);
+
+    glBindVertexArray(carSteeringVAO);
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    int i = 0;
 
     // render loop
     while (!glfwWindowShouldClose(window)) {
-
+        i = (i + 1) % 4;
         // timing process
         float currentTime = glfwGetTime();
         deltaTime = currentTime - lastFrame;
@@ -140,6 +179,23 @@ int main() {
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // same process for road
+        road.use();
+        road.setVec3("roadColor", 0.5f, 0.5f, 0.5f);
+        road.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
+        road.setVec3("lightPos", lightPos);
+        road.setVec3("viewPos", camera.Position);
+
+        road.setMat4("projection", projection);
+        road.setMat4("view", camera.GetViewMatrix());
+        road.setMat4("model",
+                     translate(
+                             rotate(scale(mat4(1.0f), vec3(2.0f, 2.0f, 2.0f)), radians(90.0f), vec3(1.0f, 0.0f, 0.0f)),
+                             vec3(-120.0f, -100.0f, 25.0f)));
+
+        glBindVertexArray(roadVAO);
+        glDrawArrays(GL_TRIANGLES, 0, roadVertices.size() / 6);
 
         // car base
         carBase.use();
@@ -158,14 +214,28 @@ int main() {
         // render the car base
         glBindVertexArray(carBaseVAO);
         glDrawArrays(GL_TRIANGLES, 0, carBaseVertices.size() / 6);
+
+        // same process for steering wheel
+        carSteering.use();
+        carSteering.setVec3("steeringColor", 0.2, 0.2f, 0.25f);
+        carSteering.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
+        carSteering.setVec3("lightPos", lightPos);
+        carSteering.setVec3("viewPos", camera.Position);
+        carSteering.setMat4("projection", projection);
+        carSteering.setMat4("view", camera.GetViewMatrix());
+        carSteering.setMat4("model", car.GetSteeringModelTransform());
+
+        glBindVertexArray(carSteeringVAO);
+        glDrawArrays(GL_TRIANGLES, 0, carSteeringVertices.size() / 6);
+
+
+        // same process for 4 wheels
         for (int i = 0; i < 4; ++i) {
             carWheel.use();
             carWheel.setVec3("wheelColor", 0.2f, 0.2f, 0.25f);
             carWheel.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
             carWheel.setVec3("lightPos", lightPos);
             carWheel.setVec3("viewPos", camera.Position);
-
-
             carWheel.setMat4("projection", projection);
             carWheel.setMat4("view", camera.GetViewMatrix());
             carWheel.setMat4("model", glm::rotate(car.GetWheelModelTransform(i), glm::radians(90.0f),
@@ -173,6 +243,8 @@ int main() {
             glBindVertexArray(carWheelVAO);
             glDrawArrays(GL_TRIANGLES, 0, carWheelVertices.size() / 6);
         }
+
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
