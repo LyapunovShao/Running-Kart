@@ -12,9 +12,9 @@
 
 
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
-const glm::vec3 lightPos = glm::vec3(0.0f, 4000.0f, 0.0f);
+int SCR_WIDTH = 800;
+int SCR_HEIGHT = 600;
+const glm::vec3 lightPos = glm::vec3(-100.0f, 3000.0f, -100.0f);
 float windowRatio = (float) SCR_WIDTH / (float) SCR_HEIGHT;
 // camera
 const glm::vec3 cameraInitialPos = glm::vec3(0.0f, 500.0f, 0.0f);
@@ -23,8 +23,6 @@ float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
-glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), windowRatio, 0.1f,
-                                        10000.0f);
 
 // car
 controlStatus status;
@@ -40,15 +38,33 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 
 void processInput(GLFWwindow *window);
 
+void renderScene(const Shader &shader);
+
+unsigned int roadVBO, roadVAO;
+unsigned int carBaseVBO, carBaseVAO;
+unsigned int carWheelVBO, carWheelVAO;
+unsigned int carSteeringVBO, carSteeringVAO;
+
+std::vector<float> carBaseVertices;
+std::vector<float> carWheelVertices;
+std::vector<float> roadVertices;
+std::vector<float> carSteeringVertices;
+
+Car car;
+mat4 projection = glm::perspective(glm::radians(camera.Zoom), windowRatio, 0.1f, 10000.0f);
+bool showShadow = false;
+
 int main() {
 
-    // initialize and configure glfw
+    // glfw: initialize and configure
+    // ------------------------------
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
 #ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // for macOS
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // uncomment this statement to fix compilation on OS X
 #endif
 
     // create a window object
@@ -59,14 +75,14 @@ int main() {
         return -1;
     }
     glfwMakeContextCurrent(window);
+    glfwGetFramebufferSize(window, &SCR_WIDTH, &SCR_HEIGHT);
+
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
 
 
     // GLFW mouse capture
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-
 
     // initialize glad
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
@@ -78,95 +94,95 @@ int main() {
     glEnable(GL_DEPTH_TEST);
 
     // create car
-    Car car;
+
 
     // build and compile shader program
-    Shader carBase("base.vs", "base.fs");
-    Shader carWheel("wheel.vs", "wheel.fs");
-    Shader road("road.vs", "road.fs");
-    Shader carSteering("steering.vs", "steering.fs");
+    Shader drawShader("draw.vs", "draw.fs");
+    Shader depthShader("simpleDepth.vs", "simpleDepth.fs");
 
     // load data
-    std::vector<float> carBaseVertices;
-    std::vector<float> carWheelVertices;
-    std::vector<float> roadVertices;
-    std::vector<float> carSteeringVertices;
+
     loadObj("base.obj", carBaseVertices);
     loadObj("wheel.obj", carWheelVertices);
     loadObj("road.obj", roadVertices);
     loadObj("steering.obj", carSteeringVertices);
 
     // configure the car base VA0, etc
-    unsigned int carBaseVBO, carBaseVAO;
+
     glGenVertexArrays(1, &carBaseVAO);
     glGenBuffers(1, &carBaseVBO);
-
+    glBindVertexArray(carBaseVAO);
     glBindBuffer(GL_ARRAY_BUFFER, carBaseVBO);
     glBufferData(GL_ARRAY_BUFFER, carBaseVertices.size() * sizeof(float), &carBaseVertices[0], GL_DYNAMIC_DRAW);
-
-    glBindVertexArray(carBaseVAO);
-
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(1);
-
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glBindVertexArray(0);
     // wheel data
-    unsigned int carWheelVBO, carWheelVAO;
     glGenVertexArrays(1, &carWheelVAO);
     glGenBuffers(1, &carWheelVBO);
-
+    glBindVertexArray(carWheelVAO);
     glBindBuffer(GL_ARRAY_BUFFER, carWheelVBO);
     glBufferData(GL_ARRAY_BUFFER, carWheelVertices.size() * sizeof(float), &carWheelVertices[0], GL_DYNAMIC_DRAW);
-
-    glBindVertexArray(carWheelVAO);
-
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(1);
-
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glBindVertexArray(0);
     //road data
-    unsigned int roadVBO, roadVAO;
+
     glGenVertexArrays(1, &roadVAO);
     glGenBuffers(1, &roadVBO);
-
+    glBindVertexArray(roadVAO);
     glBindBuffer(GL_ARRAY_BUFFER, roadVBO);
     glBufferData(GL_ARRAY_BUFFER, roadVertices.size() * sizeof(float), &roadVertices[0], GL_STATIC_DRAW);
-
-    glBindVertexArray(roadVAO);
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(1);
-
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glBindVertexArray(0);
     // steering wheel data
-    unsigned int carSteeringVBO, carSteeringVAO;
+
     glGenVertexArrays(1, &carSteeringVAO);
     glGenBuffers(1, &carSteeringVBO);
-
+    glBindVertexArray(carSteeringVAO);
     glBindBuffer(GL_ARRAY_BUFFER, carSteeringVBO);
     glBufferData(GL_ARRAY_BUFFER, carSteeringVertices.size() * sizeof(float), &carSteeringVertices[0], GL_DYNAMIC_DRAW);
-
-    glBindVertexArray(carSteeringVAO);
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glBindVertexArray(0);
+    // configure depth map
+    const GLuint SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+    unsigned int depthMapFBO;
+    glGenFramebuffers(1, &depthMapFBO);
 
-    int i = 0;
+    // create depth texture
+    unsigned int depthMap;
+    glGenTextures(1, &depthMap);
+    glBindTexture(GL_TEXTURE_2D, depthMap);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT,
+                 nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        return false;
+
+    drawShader.use();
+    drawShader.setInt("shadowMap", 0);
 
     // render loop
     while (!glfwWindowShouldClose(window)) {
-        i = (i + 1) % 4;
         // timing process
         float currentTime = glfwGetTime();
         deltaTime = currentTime - lastFrame;
@@ -176,74 +192,46 @@ int main() {
         processInput(window);
 
         // render
-
+        // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // 1. render depth of scene to texture
+        mat4 lightProjection, lightView;
+        mat4 lightSpaceMatrix;
+        lightProjection = ortho(-1000.0f, 1000.0f, -1000.0f, 1000.0f, 1.0f, 5000.0f);
+        lightView = lookAt(lightPos, vec3(0.0f), vec3(0.0f, 1.0f, 0.0f));
+        lightSpaceMatrix = lightProjection * lightView;
+        depthShader.use();
+        depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+        glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        if (showShadow)
+            renderScene(depthShader);
 
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // reset view port
+        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // 2. render scene as normal using the generated depth/shadow map
         // same process for road
-        road.use();
-        road.setVec3("roadColor", 0.5f, 0.5f, 0.5f);
-        road.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
-        road.setVec3("lightPos", lightPos);
-        road.setVec3("viewPos", camera.Position);
-
-        road.setMat4("projection", projection);
-        road.setMat4("view", camera.GetViewMatrix());
-        road.setMat4("model",
-                     translate(
-                             rotate(scale(mat4(1.0f), vec3(2.0f, 2.0f, 2.0f)), radians(90.0f), vec3(1.0f, 0.0f, 0.0f)),
-                             vec3(-120.0f, -100.0f, 25.0f)));
-
-        glBindVertexArray(roadVAO);
-        glDrawArrays(GL_TRIANGLES, 0, roadVertices.size() / 6);
-
-        // car base
-        carBase.use();
-        carBase.setVec3("baseColor", 1.0f, 0.5f, 0.3f);
-        carBase.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
-        carBase.setVec3("lightPos", lightPos);
-        carBase.setVec3("viewPos", camera.Position);
-
+        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         car.Change(status, deltaTime);
 
-        carBase.setMat4("projection", projection);
-        carBase.setMat4("view", camera.GetViewMatrix());
-        carBase.setMat4("model",
-                        glm::rotate(car.GetBaseModelTransform(), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+        drawShader.use();
+        drawShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
+        drawShader.setMat4("projection", projection);
+        drawShader.setMat4("view", camera.GetViewMatrix());
+        drawShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+        drawShader.setVec3("viewPos", camera.Position);
+        drawShader.setVec3("lightPos", lightPos);
 
-        // render the car base
-        glBindVertexArray(carBaseVAO);
-        glDrawArrays(GL_TRIANGLES, 0, carBaseVertices.size() / 6);
-
-        // same process for steering wheel
-        carSteering.use();
-        carSteering.setVec3("steeringColor", 0.2, 0.2f, 0.25f);
-        carSteering.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
-        carSteering.setVec3("lightPos", lightPos);
-        carSteering.setVec3("viewPos", camera.Position);
-        carSteering.setMat4("projection", projection);
-        carSteering.setMat4("view", camera.GetViewMatrix());
-        carSteering.setMat4("model", car.GetSteeringModelTransform());
-
-        glBindVertexArray(carSteeringVAO);
-        glDrawArrays(GL_TRIANGLES, 0, carSteeringVertices.size() / 6);
-
-
-        // same process for 4 wheels
-        for (int i = 0; i < 4; ++i) {
-            carWheel.use();
-            carWheel.setVec3("wheelColor", 0.2f, 0.2f, 0.25f);
-            carWheel.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
-            carWheel.setVec3("lightPos", lightPos);
-            carWheel.setVec3("viewPos", camera.Position);
-            carWheel.setMat4("projection", projection);
-            carWheel.setMat4("view", camera.GetViewMatrix());
-            carWheel.setMat4("model", glm::rotate(car.GetWheelModelTransform(i), glm::radians(90.0f),
-                                                  glm::vec3(1.0f, 0.0f, 0.0f)));
-            glBindVertexArray(carWheelVAO);
-            glDrawArrays(GL_TRIANGLES, 0, carWheelVertices.size() / 6);
-        }
-
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, depthMap);
+        renderScene(drawShader);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -252,6 +240,40 @@ int main() {
     // glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
     return 0;
+}
+
+void renderScene(const Shader &shader) {
+    // road
+    shader.setVec3("objColor", 0.5f, 0.5f, 0.5f);
+    shader.setMat4("model",
+                   translate(
+                           rotate(scale(mat4(1.0f), vec3(2.0f, 2.0f, 2.0f)), radians(90.0f), vec3(1.0f, 0.0f, 0.0f)),
+                           vec3(-120.0f, -100.0f, 25.0f)));
+    glBindVertexArray(roadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, roadVertices.size() / 6);
+    glBindVertexArray(0);
+    // car base
+    shader.setVec3("objColor", 1.0f, 0.5f, 0.3f);
+    shader.setMat4("model",
+                   glm::rotate(car.GetBaseModelTransform(), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+    glBindVertexArray(carBaseVAO);
+    glDrawArrays(GL_TRIANGLES, 0, carBaseVertices.size() / 6);
+    glBindVertexArray(0);
+    // steering wheel
+    shader.setVec3("objColor", 0.2, 0.2f, 0.25f);
+    shader.setMat4("model", car.GetSteeringModelTransform());
+    glBindVertexArray(carSteeringVAO);
+    glDrawArrays(GL_TRIANGLES, 0, carSteeringVertices.size() / 6);
+    glBindVertexArray(0);
+    // 4 wheels
+    shader.setVec3("objColor", 0.2f, 0.2f, 0.25f);
+    for (int i = 0; i < 4; ++i) {
+        shader.setMat4("model", glm::rotate(car.GetWheelModelTransform(i), glm::radians(90.0f),
+                                            glm::vec3(1.0f, 0.0f, 0.0f)));
+        glBindVertexArray(carWheelVAO);
+        glDrawArrays(GL_TRIANGLES, 0, carWheelVertices.size() / 6);
+        glBindVertexArray(0);
+    }
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
@@ -274,6 +296,10 @@ void processInput(GLFWwindow *window) {
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
+        showShadow = true;
+    else showShadow = false;
 
     status.forward = glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS;
     status.backward = glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS;
