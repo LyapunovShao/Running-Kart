@@ -90,6 +90,15 @@ private:
 
 
 public:
+    vec3 GetCameraPosition() {
+        float angle = direction * pi / 180;
+        return vec3(bX + (-150.0f) * cos(angle) - (37.0f) * sin(angle), 200.0f,
+                    bZ + (37.0f) * cos(angle) + (-150.0f) * sin(angle));
+    }
+
+    float GetCameraDirection() {
+        return direction;
+    }
 
     void Change(controlStatus status, float deltaTime) {
         delta = deltaTime;
@@ -142,7 +151,7 @@ public:
         model = rotate(model, radians(90.0f), vec3(0.0f, 1.0f, 0.0f));
         model = rotate(model, radians(24.0f), vec3(1.0f, 0.0f, 0.0f));
         float r = -9.8;
-        model = rotate(model, radians(wheelTheta),vec3(0.0f,0.0f,1.0f));
+        model = rotate(model, radians(wheelTheta), vec3(0.0f, 0.0f, 1.0f));
         model = translate(model, vec3(r * (1 - sqrt(2) * sin(pi / 4 + wheelTheta * pi / 180)),
                                       r * (1 - sqrt(2) * cos(pi / 4 + wheelTheta * pi / 180)), 0.0f));
         return model;

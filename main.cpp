@@ -53,6 +53,12 @@ std::vector<float> carSteeringVertices;
 Car car;
 mat4 projection = glm::perspective(glm::radians(camera.Zoom), windowRatio, 0.1f, 10000.0f);
 bool showShadow = false;
+bool changeEnable = true;
+const int intervalLimit = 300;
+int changeInterval = intervalLimit;
+
+bool followMode = false;
+
 
 int main() {
 
@@ -187,6 +193,13 @@ int main() {
         float currentTime = glfwGetTime();
         deltaTime = currentTime - lastFrame;
         lastFrame = currentTime;
+        if (!changeEnable) {
+            --changeInterval;
+            if (changeInterval <= 0) {
+                changeInterval = intervalLimit;
+                changeEnable = true;
+            }
+        }
 
         // input
         processInput(window);
@@ -224,7 +237,8 @@ int main() {
         drawShader.use();
         drawShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
         drawShader.setMat4("projection", projection);
-        drawShader.setMat4("view", camera.GetViewMatrix());
+        drawShader.setMat4("view", camera.GetViewMatrix(followMode,car.GetCameraPosition(),
+                car.GetCameraDirection()));
         drawShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
         drawShader.setVec3("viewPos", camera.Position);
         drawShader.setVec3("lightPos", lightPos);
@@ -296,6 +310,11 @@ void processInput(GLFWwindow *window) {
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    if (changeEnable && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+        changeEnable = false;
+        followMode = !followMode;
+    }
 
     if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
         showShadow = true;
